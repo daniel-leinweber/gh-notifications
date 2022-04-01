@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -e -o pipefail
+
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+GRAY='\033[0;30m'
+NC='\033[0m'
+
+help() {
+    cat <<EOF
+Usage: gh notify [--flags]
+
+View and search and GitHub notifications. 
+Select a pull request or issue to get more info on it.
+
+Flags:
+    -a      include all notifications 
+    -r      mark all notifications as read 
+    -s      print a static display
+    -p      show only participating or mention notifications
+    -n      max number of notifications to show (default 30)
+EOF
+}
+
+a_flag='false'
+p_flag='false'
+s_flag='false'
+r_flag='false'
+n_flag='30'
+
+while getopts 'n:pahsr' flag; do
+  case "${flag}" in
+    n) n_flag="${OPTARG}" ;;
+    a) a_flag='true' ;;
+    p) p_flag='true' ;;
+    s) s_flag='true' ;;
+    r) r_flag='true' ;;
+    h) help
+       exit 0 ;;
+    *) help 
+       exit 1 ;;
+  esac
+done
+
+get_notifs() {
+    gh api -X GET /notifications --cache=20s \
+    -f per_page="$n_flag" -f all="$a_flag" -f participating="$p_flag" \
+    --template '
+    {{- range . -}}
+        {{- printf "%s\t%s\t%s\t%s\t" .reason .updated_at .subject.type .subject.title -}} 
+        {{- printf "%s\t" .repository.full_name -}}
+        {{- printf "%s\n" .subject.url -}}
+    {{- end -}}'
+}
+
+print_notifs() {
+    local reason timestamp type title repo url 
+    get_notifs | while IFS=$'\t' read -r reason timestamp type title repo url; do
+        time="${timestamp:8:2}.${timestamp:5:2}.${timestamp:0:4} ${timestamp:11:5}" 
+        case "$type" in 
+            "PullRequest" | "Issue" ) 
+                printf "%s${GREEN}\t%s${NC}\t${BLUE}%s${NC}\t%s ${GREEN}#%s${NC}\t%s\n" \
+                    "${time/T/ }" "${reason}" "${repo}" "${type}" "${url##*/}" "${title}" 
+                ;;
+            *)
+                printf "%s${GREEN}\t%s${NC}\t${BLUE}%s${NC}\t%s \t%s\n" \
+                    "${time/T/ }" "${reason}" "${repo}" "${type}" "${title}" 
+                ;;
+        esac
+    done | column -t -s$'\t'
+}
+
+select_notif() {
+    local notifs 
+    notifs="$(print_notifs)"
+    [ -n "$notifs" ] || exit 0 
+    fzf --ansi <<< "$notifs"
+}
+
+mark_notifs_read() {
+    gh api -X PUT /notifications -F read=true --silent 
+}
+
+gh_info() {
+    local repo type num
+    read _ _ _ repo type num _
+    case $type in
+        "PullRequest")
+            gh pr view "${num#\#}" -R "${repo}" -c
+            ;;
+        "Issue")
+            gh issue view "${num#\#}" -R "${repo}" -c
+            ;;
+        "Release")
+            gh release view -R "${repo}"
+            ;;
+        *)
+            ;;
+    esac
+}
+
+if [[ $r_flag == "true" ]]; then
+    mark_notifs_read
+    exit 0
+fi
+
+if [[ $s_flag == "false" ]]; then
+    if ! type -p fzf >/dev/null; then
+      echo "error: install \`fzf\` or use the -s flag" >&2
+      exit 1
+    fi
+    select_notif | gh_info 
+else
+    print_notifs
+fi
