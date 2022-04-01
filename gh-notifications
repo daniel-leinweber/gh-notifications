@@ -8,15 +8,16 @@ NC='\033[0m'
 
 help() {
     cat <<EOF
-Usage: gh notify [--flags]
+Usage: gh notifications [--flags]
 
-View and search and GitHub notifications. 
-Select a pull request or issue to get more info on it.
+View and search GitHub notifications. When using fzf you can
+select the associated pull request or issue by hitting enter
+to get more info on it.
 
 Flags:
     -a      include all notifications 
     -r      mark all notifications as read 
-    -s      print a static display
+    -s      print a static output list (do not use fzf)
     -p      show only participating or mention notifications
     -n      max number of notifications to show (default 30)
 EOF
