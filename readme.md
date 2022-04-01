@@ -28,3 +28,10 @@ Flags:
     -p      show only participating or mention notifications
     -n      max number of notifications to show (default 30)
 ```
+
+## Possible issues
+If you are facing an error like `'\r': command not found` you might need to modify the line endings of the gh-notifications file as follows:
+
+`sed -i 's/\r$//' filename`
+
+Here filename needs to be the full path of the gh-notifications script file.
