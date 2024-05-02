@@ -44,7 +44,7 @@ while getopts 'n:pahsr' flag; do
 done
 
 get_notifs() {
-    gh api -X GET /notifications --cache=20s \
+    gh api -X GET notifications --cache=20s \
     -f per_page="$n_flag" -f all="$a_flag" -f participating="$p_flag" \
     --template '
     {{- range . -}}
@@ -79,7 +79,7 @@ select_notif() {
 }
 
 mark_notifs_read() {
-    gh api -X PUT /notifications -F read=true --silent 
+    gh api -X PUT notifications -F read=true --silent 
 }
 
 gh_info() {
